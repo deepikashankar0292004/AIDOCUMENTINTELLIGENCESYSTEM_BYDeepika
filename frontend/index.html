@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Document Intelligence System</title>
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 85%;
+            max-width: 1000px;
+            margin: 40px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #222;
+            margin-bottom: 10px;
+        }
+
+        .description {
+            text-align: center;
+            color: #555;
+            margin-bottom: 30px;
+        }
+
+        .upload-box {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        input[type="file"] {
+            margin: 20px;
+            padding: 8px;
+        }
+
+        button {
+            padding: 12px 25px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 15px;
+        }
+
+        button:hover {
+            background: #555;
+        }
+
+        button:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .processing {
+            color: #555;
+        }
+
+        .result-container {
+            margin-top: 30px;
+        }
+
+        .result-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        pre {
+            padding: 20px;
+            background: #f1f1f1;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            text-align: left;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .info-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 5px solid #333;
+        }
+
+        .validation-passed {
+            color: green;
+            font-weight: bold;
+        }
+
+        .validation-warning {
+            color: orange;
+            font-weight: bold;
+        }
+
+        .validation-failed {
+            color: red;
+            font-weight: bold;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<div class="container">
+
+    <h1>
+        Document Intelligence System
+    </h1>
+
+    <p class="description">
+        Upload a financial document or invoice
+        for AI-powered extraction and validation.
+    </p>
+
+
+    <div class="upload-box">
+
+        <input
+            type="file"
+            id="fileInput"
+            accept=".pdf,.jpg,.jpeg,.png"
+        >
+
+        <br>
+
+
+        <button
+            id="testButton"
+            onclick="testBackend()"
+        >
+            Test Backend
+        </button>
+
+
+        <button
+            id="uploadButton"
+            onclick="uploadDocument()"
+        >
+            Upload & Process
+        </button>
+
+
+        <div id="status"></div>
+
+
+        <div class="info-box" id="summary"
+             style="display:none;">
+        </div>
+
+
+        <div class="result-container">
+
+            <div class="result-title">
+                Extraction Result
+            </div>
+
+            <pre id="result"></pre>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+
+// ==================================================
+// BACKEND URL
+// ==================================================
+
+const BACKEND_URL =
+    "http://127.0.0.1:8001";
+
+
+// ==================================================
+// TEST BACKEND CONNECTION
+// ==================================================
+
+async function testBackend() {
+
+    const status =
+        document.getElementById("status");
+
+    const result =
+        document.getElementById("result");
+
+    const summary =
+        document.getElementById("summary");
+
+
+    status.className = "processing";
+
+    status.innerText =
+        "Checking backend connection...";
+
+    result.innerText = "";
+
+    summary.style.display = "none";
+
+
+    try {
+
+        const response =
+            await fetch(
+                BACKEND_URL +
+                "/api/v1/health"
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Backend returned HTTP " +
+                response.status
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        status.className = "success";
+
+        status.innerText =
+            "Backend connected successfully.";
+
+
+        result.innerText =
+            JSON.stringify(
+                data,
+                null,
+                4
+            );
+
+
+    }
+
+    catch (error) {
+
+        status.className = "error";
+
+        status.innerText =
+            "Could not connect to backend.";
+
+        result.innerText =
+            "Error: " +
+            error.toString();
+
+    }
+
+}
+
+
+// ==================================================
+// UPLOAD DOCUMENT
+// ==================================================
+
+async function uploadDocument() {
+
+    const fileInput =
+        document.getElementById("fileInput");
+
+    const status =
+        document.getElementById("status");
+
+    const result =
+        document.getElementById("result");
+
+    const summary =
+        document.getElementById("summary");
+
+    const uploadButton =
+        document.getElementById("uploadButton");
+
+    const testButton =
+        document.getElementById("testButton");
+
+
+    // ----------------------------------------------
+    // Check file
+    // ----------------------------------------------
+
+    if (fileInput.files.length === 0) {
+
+        status.className = "error";
+
+        status.innerText =
+            "Please select a document.";
+
+        result.innerText = "";
+
+        summary.style.display = "none";
+
+        return;
+
+    }
+
+
+    const file =
+        fileInput.files[0];
+
+
+    // ----------------------------------------------
+    // Create FormData
+    // ----------------------------------------------
+
+    const formData =
+        new FormData();
+
+    formData.append(
+        "file",
+        file
+    );
+
+
+    // ----------------------------------------------
+    // Show processing status
+    // ----------------------------------------------
+
+    status.className =
+        "processing";
+
+    status.innerText =
+        "Processing document... Please wait.";
+
+    result.innerText = "";
+
+    summary.style.display = "none";
+
+
+    // Disable buttons while processing
+
+    uploadButton.disabled = true;
+
+    testButton.disabled = true;
+
+
+    try {
+
+        // ------------------------------------------
+        // Send document to FastAPI
+        // ------------------------------------------
+
+        const response =
+            await fetch(
+                BACKEND_URL +
+                "/api/v1/documents/upload",
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
+
+
+        // ------------------------------------------
+        // Check HTTP response
+        // ------------------------------------------
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Backend returned HTTP " +
+                response.status
+            );
+
+        }
+
+
+        // ------------------------------------------
+        // Convert response to JSON
+        // ------------------------------------------
+
+        const data =
+            await response.json();
+
+
+        // ------------------------------------------
+        // Display complete JSON result
+        // ------------------------------------------
+
+        result.innerText =
+            JSON.stringify(
+                data,
+                null,
+                4
+            );
+
+
+        // ------------------------------------------
+        // Check success
+        // ------------------------------------------
+
+        if (data.success) {
+
+            status.className =
+                "success";
+
+            status.innerText =
+                "Document processed successfully.";
+
+        }
+
+        else {
+
+            status.className =
+                "error";
+
+            status.innerText =
+                "Document processing failed.";
+
+        }
+
+
+        // ------------------------------------------
+        // Display summary
+        // ------------------------------------------
+
+        displaySummary(data);
+
+
+    }
+
+    catch (error) {
+
+        status.className =
+            "error";
+
+        status.innerText =
+            "Could not connect to backend.";
+
+        result.innerText =
+            "Error: " +
+            error.toString();
+
+
+        summary.style.display =
+            "none";
+
+    }
+
+
+    // Enable buttons again
+
+    uploadButton.disabled = false;
+
+    testButton.disabled = false;
+
+}
+
+
+// ==================================================
+// DISPLAY EXTRACTION SUMMARY
+// ==================================================
+
+function displaySummary(data) {
+
+    const summary =
+        document.getElementById("summary");
+
+
+    // If no successful response
+
+    if (!data || !data.success) {
+
+        summary.style.display =
+            "none";
+
+        return;
+
+    }
+
+
+    const structured =
+        data.structured_result;
+
+
+    if (!structured) {
+
+        summary.style.display =
+            "none";
+
+        return;
+
+    }
+
+
+    const documentType =
+        structured.document_type ||
+        "Unknown";
+
+
+    const validation =
+        data.validation;
+
+
+    let validationText =
+        "Not available";
+
+    let validationClass =
+        "";
+
+
+    if (validation) {
+
+        if (validation.status === "passed") {
+
+            validationText =
+                "PASSED";
+
+            validationClass =
+                "validation-passed";
+
+        }
+
+        else if (
+            validation.status === "warning"
+        ) {
+
+            validationText =
+                "WARNING";
+
+            validationClass =
+                "validation-warning";
+
+        }
+
+        else {
+
+            validationText =
+                "FAILED";
+
+            validationClass =
+                "validation-failed";
+
+        }
+
+    }
+
+
+    summary.innerHTML =
+
+        "<strong>Document Type:</strong> " +
+        documentType +
+
+        "<br><br>" +
+
+        "<strong>File:</strong> " +
+        (data.original_filename || "Unknown") +
+
+        "<br><br>" +
+
+        "<strong>Validation:</strong> " +
+
+        "<span class='" +
+        validationClass +
+        "'>" +
+
+        validationText +
+
+        "</span>";
+
+
+    summary.style.display =
+        "block";
+
+}
+
+
+// ==================================================
+// PAGE LOAD
+// ==================================================
+
+window.onload = function() {
+
+    document.getElementById(
+        "status"
+    ).innerText =
+        "Ready to process a document.";
+
+};
+
+
+</script>
+
+
+</body>
+
+</html>
